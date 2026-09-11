@@ -1,52 +1,45 @@
 import pandas as pd
 import numpy as np
 
-# Z-Score Scaler Constants (Fit on 70% of training data)
-TRAIN_MEAN = 9.107596480798954
-TRAIN_STD = 8.654227205363727
-
-def scale_temperature(value):
-    """Normalisasi nilai suhu menggunakan StandardScaler dari training."""
-    return (value - TRAIN_MEAN) / TRAIN_STD
-
-def inverse_scale_temperature(scaled_value):
-    """Mengembalikan nilai prediksi ter-skala menjadi Suhu °C aktual."""
-    return (scaled_value * TRAIN_STD) + TRAIN_MEAN
-
-def prepare_sequence_from_dict(input_dict, seq_length=144):
-    """
-    Mengubah single input manual (T (degC)) menjadi sequence array (1, 144, 1).
-    """
-    raw_temp = float(input_dict.get('T (degC)', 0.0))
-    scaled_temp = scale_temperature(raw_temp)
+def load_and_preprocess_data(csv_path, seq_length=144):
+    df = pd.read_csv(csv_path)
+    dates = df['Date Time'].values
+    features_df = df.drop(columns=['Date Time'])
+    feature_names = features_df.columns.tolist()
+    features = features_df.values
     
-    # Buat single step array shape (1,)
-    single_step = np.array([scaled_temp])
+    # Fallback scaler: fitting on the sample data since scaler.pkl is missing
+    mean = features.mean(axis=0)
+    std = features.std(axis=0)
+    std[std == 0] = 1.0 # Prevent division by zero
     
-    # Duplikasi menjadi (144, 1)
-    sequence = np.tile(single_step, (seq_length, 1))
-    
-    # Tambahkan dimensi batch (1, 144, 1)
-    return np.expand_dims(sequence, axis=0)
-
-def prepare_sequence_from_df(df, seq_length=144):
-    """
-    Mengambil baris terakhir fitur T (degC) dari dataframe untuk dijadikan sequence prediksi.
-    """
-    if len(df) < seq_length:
-        raise ValueError(f"Dataset minimal harus memiliki {seq_length} baris data.")
+    if len(features) < seq_length:
+        raise ValueError(f"Dataset too small. Need {seq_length} rows, got {len(features)}")
         
-    if 'T (degC)' not in df.columns:
-        raise ValueError("Dataset tidak memiliki kolom 'T (degC)'")
+    raw_sequence = features[-seq_length:].copy()
+    sequence_dates = dates[-seq_length:]
+    
+    return raw_sequence, sequence_dates, mean, std, feature_names
+
+def apply_what_if_and_scale(raw_sequence, mean, std, feature_names, delta_t, delta_rh):
+    seq_copy = raw_sequence.copy()
+    
+    # Find indices
+    try:
+        t_idx = feature_names.index('T (degC)')
+        rh_idx = feature_names.index('rh (%)')
         
-    # Ambil fitur T (degC)
-    df_temp = df['T (degC)'].tail(seq_length)
+        # Apply deltas to the last 24 hours of the sequence for simulation effect
+        seq_copy[-24:, t_idx] += delta_t
+        seq_copy[-24:, rh_idx] += delta_rh
+    except ValueError:
+        pass # Columns not found, ignore deltas
+        
+    # Scale
+    scaled_sequence = (seq_copy - mean) / std
     
-    # Skalakan data
-    scaled_temp = scale_temperature(df_temp.values.astype('float32'))
+    # Model only expects Temperature! (Univariate)
+    # Shape should be (1, 144, 1)
+    model_input = scaled_sequence[:, t_idx:t_idx+1]
     
-    # Konversi ke shape (144, 1)
-    sequence = scaled_temp.reshape(-1, 1)
-    
-    # Tambahkan dimensi batch (1, 144, 1)
-    return np.expand_dims(sequence, axis=0)
+    return np.expand_dims(model_input, axis=0), seq_copy
