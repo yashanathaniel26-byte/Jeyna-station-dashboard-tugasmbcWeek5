@@ -59,11 +59,11 @@ with st.sidebar:
         </div>
     </div>
     """, unsafe_allow_html=True)
-    station = st.selectbox("", ["Jena Central [Real]", "Jena North [Sim]", "Weimar [Sim]"], label_visibility="collapsed")
+    station = st.selectbox("Active Station", ["Jena Central [Real]", "Jena North [Sim]", "Weimar [Sim]"], label_visibility="collapsed")
 
     st.markdown('<div style="padding:8px 16px 4px;">', unsafe_allow_html=True)
     pages = ["01 OVERVIEW", "02 MODEL_A (LSTM)", "03 MODEL_B (GRU)", "04 BENCHMARK"]
-    page = st.radio("", pages, label_visibility="collapsed")
+    page = st.radio("Navigation Menu", pages, label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("""

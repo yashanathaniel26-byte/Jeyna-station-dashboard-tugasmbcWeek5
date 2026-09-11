@@ -2,7 +2,7 @@ streamlit>=1.30.0
 tensorflow>=2.13.0
 numpy>=1.24.0
 pandas>=2.0.0
-plotly>=5.18.0
+plotly>=5.18.0,<6.0.0
 matplotlib>=3.7.0
 # Dependensi Khusus v3 (RAG/LLM)
 langchain-community>=0.0.20
