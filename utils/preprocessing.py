@@ -43,3 +43,18 @@ def apply_what_if_and_scale(raw_sequence, mean, std, feature_names, delta_t, del
     model_input = scaled_sequence[:, t_idx:t_idx+1]
     
     return np.expand_dims(model_input, axis=0), seq_copy
+
+# --- LEGACY V1 FUNCTIONS ---
+def prepare_sequence_from_dict(manual_data):
+    val = manual_data.get('T (degC)', 15.0)
+    scaled_val = (val - 9.1) / 8.6
+    seq = np.full((1, 144, 1), scaled_val)
+    return seq
+
+def prepare_sequence_from_df(df):
+    seq = df['T (degC)'].values[-144:]
+    scaled_seq = (seq - 9.1) / 8.6
+    return np.expand_dims(np.expand_dims(scaled_seq, axis=0), axis=2)
+
+def inverse_scale_temperature(scaled_val):
+    return (scaled_val * 8.6) + 9.1
