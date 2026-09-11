@@ -40,15 +40,13 @@ def get_seq_data():
     return load_and_preprocess_data(csv_path, seq_length=144)
 
 @st.cache_resource
-def load_tflite_model():
-    model_path = os.path.join(os.path.dirname(__file__), "..", "models", "lstm_config1_quant.tflite")
-    interpreter = tf.lite.Interpreter(model_path=model_path)
-    interpreter.allocate_tensors()
-    return interpreter
+def load_keras_model():
+    model_path = os.path.join(os.path.dirname(__file__), "..", "models", "lstm_config1.h5")
+    return tf.keras.models.load_model(model_path, compile=False)
 
 df, latest_data = load_data()
 raw_seq, seq_dates, feat_mean, feat_std, feat_names = get_seq_data()
-interpreter = load_tflite_model()
+model = load_keras_model()
 
 # --- SIDEBAR NAV ---
 with st.sidebar:
@@ -189,12 +187,8 @@ elif page == "02 MODEL_A (LSTM)":
         # Apply deltas to raw sequence
         model_input, sim_seq = apply_what_if_and_scale(raw_seq, feat_mean, feat_std, feat_names, delta_t, delta_rh)
         
-        # TFLite Inference
-        input_details = interpreter.get_input_details()
-        output_details = interpreter.get_output_details()
-        interpreter.set_tensor(input_details[0]['index'], tf.cast(model_input, tf.float32))
-        interpreter.invoke()
-        pred_scaled = interpreter.get_tensor(output_details[0]['index'])[0][0]
+        # Keras Inference
+        pred_scaled = model.predict(model_input, verbose=0)[0][0]
         
         t_idx = feat_names.index('T (degC)')
         pred_temp = (pred_scaled * feat_std[t_idx]) + feat_mean[t_idx]
