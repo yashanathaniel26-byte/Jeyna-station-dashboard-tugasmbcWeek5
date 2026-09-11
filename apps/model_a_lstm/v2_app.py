@@ -153,21 +153,12 @@ if page == "01  OVERVIEW":
                 'size': [10, 10, 10]
             })
         
-        fig_map = go.Figure(go.Scattermapbox(
-            lat=stations_df['lat'],
-            lon=stations_df['lon'],
-            mode='markers+text',
-            marker=go.scattermapbox.Marker(
-                size=stations_df['size'],
-                color=stations_df['color'],
-                opacity=0.9
-            ),
-            text=stations_df['label'],
-            textfont=dict(family="JetBrains Mono", color="#E6EDF3", size=10),
-            textposition="bottom right",
-            hoverinfo='text'
-        ))
-        
+        import plotly.express as px
+        fig_map = px.scatter_mapbox(
+            stations_df, lat="lat", lon="lon", hover_name="label",
+            color="color", size="size", size_max=24, zoom=9.5, height=300
+        )
+        # Apply styling to hide default colorscale and use mapbox style
         fig_map.update_layout(
             mapbox=dict(
                 style="white-bg",
@@ -178,13 +169,13 @@ if page == "01  OVERVIEW":
                         below="traces"
                     )
                 ],
-                center=go.layout.mapbox.Center(lat=50.9500, lon=11.4500),
-                zoom=9.5
+                center=dict(lat=50.9500, lon=11.4500)
             ),
             margin=dict(l=0, r=0, t=0, b=0),
-            height=300,
-            paper_bgcolor="rgba(0,0,0,0)"
+            paper_bgcolor="rgba(0,0,0,0)",
+            showlegend=False
         )
+        fig_map.update_traces(marker=dict(opacity=0.9))
         st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar": False})
     
     with col3:
