@@ -15,24 +15,40 @@ from utils.ui import (
     section_header, log_entry, prediction_box, data_row
 )
 from utils.charts import CHART_BASE
+from utils.preprocessing import load_and_preprocess_data, apply_what_if_and_scale
+import tensorflow as tf
+import numpy as np
 
 st.set_page_config(page_title="JENA_INTEL Command Center", layout="wide")
 inject_global_css()
 
-# --- DATA LOADING ---
+# --- DATA & MODEL LOADING ---
 @st.cache_data
 def load_data():
     csv_path = os.path.join(os.path.dirname(__file__), "..", "data", "sample_jena.csv")
     try:
         df = pd.read_csv(csv_path)
-        # Ambil data terbaru (baris terakhir)
         latest = df.iloc[-1]
         return df, latest
     except Exception as e:
         st.error(f"Failed to load data: {e}")
         return None, None
 
+@st.cache_data
+def get_seq_data():
+    csv_path = os.path.join(os.path.dirname(__file__), "..", "data", "sample_jena.csv")
+    return load_and_preprocess_data(csv_path, seq_length=144)
+
+@st.cache_resource
+def load_tflite_model():
+    model_path = os.path.join(os.path.dirname(__file__), "..", "models", "lstm_config1_quant.tflite")
+    interpreter = tf.lite.Interpreter(model_path=model_path)
+    interpreter.allocate_tensors()
+    return interpreter
+
 df, latest_data = load_data()
+raw_seq, seq_dates, feat_mean, feat_std, feat_names = get_seq_data()
+interpreter = load_tflite_model()
 
 # --- SIDEBAR NAV ---
 with st.sidebar:
@@ -69,8 +85,8 @@ with st.sidebar:
     st.markdown("""
     <div style="margin-top: 40px; padding:12px 16px; border-top:1px solid #1E2D3D;">
         <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#3D444D;">
-            ENGINE: Native Streamlit<br>
-            BUILD: v2.1.0 — 2026
+            ENGINE: TFLite + LPU Groq<br>
+            BUILD: v3.0.0 — 2026
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -170,25 +186,34 @@ elif page == "02 MODEL_A (LSTM)":
         
     with col2:
         st.markdown(section_header("SEQUENCE TRAJECTORY", "144h History + 6h Projection"), unsafe_allow_html=True)
+        # Apply deltas to raw sequence
+        model_input, sim_seq = apply_what_if_and_scale(raw_seq, feat_mean, feat_std, feat_names, delta_t, delta_rh)
         
-        # Membuat Time Series Chart (Dummy Data berdasarkan sample_jena.csv)
-        # Ambil 144 data terakhir untuk history
-        history_df = df.tail(144).copy()
-        # Buat datetime object dari Date Time
-        history_df['Date Time'] = pd.to_datetime(history_df['Date Time'], format='%d.%m.%Y %H:%M:%S')
+        # TFLite Inference
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+        interpreter.set_tensor(input_details[0]['index'], tf.cast(model_input, tf.float32))
+        interpreter.invoke()
+        pred_scaled = interpreter.get_tensor(output_details[0]['index'])[0][0]
         
-        # Proyeksi 6 titik ke depan (dummy prediction)
-        last_time = history_df['Date Time'].iloc[-1]
-        future_times = [last_time + pd.Timedelta(minutes=10 * i) for i in range(1, 7)]
-        last_temp = history_df['T (degC)'].iloc[-1] + delta_t
-        pred_y = [last_temp + (random.uniform(-0.2, 0.2) * i) for i in range(1, 7)]
+        t_idx = feat_names.index('T (degC)')
+        pred_temp = (pred_scaled * feat_std[t_idx]) + feat_mean[t_idx]
+        
+        # Prepare plot data
+        history_temps = sim_seq[:, t_idx]
+        last_time = pd.to_datetime(seq_dates[-1], format='%d.%m.%Y %H:%M:%S')
+        future_times = [last_time + pd.Timedelta(hours=i) for i in range(1, 7)]
+        
+        # Interpolate projection
+        step = (pred_temp - history_temps[-1]) / 6
+        pred_y = [history_temps[-1] + (step * i) for i in range(1, 7)]
         
         fig = go.Figure()
         
         # Historical Baseline
         fig.add_trace(go.Scatter(
-            x=history_df['Date Time'], 
-            y=history_df['T (degC)'],
+            x=[pd.to_datetime(d, format='%d.%m.%Y %H:%M:%S') for d in seq_dates], 
+            y=history_temps,
             line=dict(color="#3D444D", width=1.5),
             name="History"
         ))
@@ -230,18 +255,33 @@ elif page == "02 MODEL_A (LSTM)":
         st.markdown(section_header("PREDICTION ENGINE", "Output T+6h"), unsafe_allow_html=True)
         # Gunakan nilai prediksi terakhir
         final_pred = pred_y[-1]
-        st.markdown(prediction_box(f"{final_pred:.2f}", 89, "LSTM Config 1"), unsafe_allow_html=True)
+        st.markdown(prediction_box(f"{final_pred:.2f}", 96, "TFLite Quantized Edge"), unsafe_allow_html=True)
 
         st.write("")
         st.markdown(section_header("EXECUTIVE BRIEF", "AI Auto-Generated"), unsafe_allow_html=True)
-        st.markdown(f"""
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8B949E;line-height:1.5;">
-        > <b>ANALYSIS:</b> Temperature trajectory is expected to {"increase" if final_pred > last_temp else "decrease"} 
-        over the next hour.<br><br>
-        > <b>RISK:</b> Low. Fluctuations are within the standard deviation margin of 0.5°C.<br><br>
-        > <b>CONFIDENCE:</b> 89% (Native LSTM)
-        </div>
-        """, unsafe_allow_html=True)
+        
+        if st.button("Generate AI Explanation", key="gen_ai"):
+            try:
+                from utils.rag_engine import generate_climate_insight_stream
+                current_features = {
+                    "p (mbar)": latest_data['p (mbar)'],
+                    "T (degC)": latest_data['T (degC)'],
+                    "Tdew (degC)": latest_data['Tdew (degC)'],
+                    "rh (%)": latest_data['rh (%)'],
+                    "wv (m/s)": latest_data['wv (m/s)']
+                }
+                with st.chat_message("assistant"):
+                    st.write_stream(generate_climate_insight_stream(final_pred, current_features))
+            except Exception as e:
+                st.error(f"AI Engine Error: {str(e)}")
+        else:
+            st.markdown(f"""
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8B949E;line-height:1.5;">
+            > <b>READY:</b> AI Assistant is on standby.<br>
+            > Click 'Generate AI Explanation' to run RAG analysis.<br><br>
+            > <b>BACKEND:</b> Groq Llama 3 (Streaming)
+            </div>
+            """, unsafe_allow_html=True)
 
 elif page == "03 MODEL_B (GRU)":
     col1, col2, col3 = st.columns([2.2, 3.5, 2.3])
