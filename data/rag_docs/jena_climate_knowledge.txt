@@ -1,0 +1,28 @@
+# JENA CLIMATE KNOWLEDGE BASE (DOMAIN KNOWLEDGE)
+# Digunakan oleh agen AI (LLM RAG) untuk memberikan konteks meteorologi saat melakukan interpretasi angka numerik.
+
+1. TEKANAN UDARA (p dalam mbar)
+- Nilai normal di wilayah stasiun Jena berada pada kisaran 980 mbar hingga 1000 mbar.
+- Penurunan tekanan udara yang tajam dan tiba-tiba (lebih dari 2-3 mbar dalam waktu singkat) biasanya mengindikasikan datangnya badai atau cuaca buruk.
+- Tekanan tinggi (di atas 1000 mbar) biasanya berarti cuaca cerah dan tenang.
+
+2. SUHU & TITIK EMBUN (T dan Tdew dalam degC)
+- Titik embun (Tdew) adalah suhu di mana udara menjadi jenuh dengan uap air.
+- Jika nilai Suhu (T) sangat dekat atau sama dengan Titik Embun (Tdew), maka Kelembapan Relatif (rh) akan mendekati 100%. 
+- Kondisi T mendekati Tdew akan memicu kondensasi: risiko terbentuknya embun tebal, kabut (menurunkan visibilitas penerbangan/lalu lintas darat), atau curah hujan tinggi.
+- Jika Suhu (T) berada di bawah 0 degC (minus) dan rh tinggi, terdapat ancaman Badai Es (Frost/Freezing Fog) yang membahayakan operasional mesin outdoor.
+
+3. TEKANAN UAP (VPmax, VPact, VPdef dalam mbar)
+- VPmax adalah kapasitas maksimal udara menampung uap air.
+- VPact adalah jumlah uap air aktual di udara.
+- VPdef (Defisit Tekanan Uap) adalah selisihnya. Jika VPdef mendekati 0, artinya udara tidak lagi bisa menampung air (jenuh/hujan).
+
+4. KEPADATAN UDARA (rho dalam g/m³)
+- Kepadatan udara berbanding terbalik dengan suhu. Semakin dingin suhu, udara semakin padat (rho meningkat).
+- Udara yang padat (rho sangat tinggi) di musim dingin dapat memengaruhi gaya angkat (lift) pada desain aerodinamis atau baling-baling drone dan turbin angin.
+
+5. KECEPATAN ANGIN (wv dan max wv dalam m/s)
+- Kecepatan angin normal biasanya di bawah 5 m/s.
+- Kecepatan angin lebih dari 10 m/s mengindikasikan angin kencang yang bisa mengganggu stabilitas turbin angin dan penerbangan drone inspeksi.
+- Kecepatan di atas 15 m/s adalah badai berbahaya.
+- Arah angin (wd dalam derajat) merepresentasikan dari mana badai berasal (0/360 = Utara, 90 = Timur, 180 = Selatan, 270 = Barat).

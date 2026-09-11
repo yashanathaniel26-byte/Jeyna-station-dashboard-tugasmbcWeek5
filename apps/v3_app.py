@@ -85,7 +85,7 @@ with st.sidebar:
     st.markdown("""
     <div style="margin-top: 40px; padding:12px 16px; border-top:1px solid #1E2D3D;">
         <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#3D444D;">
-            ENGINE: TFLite + LPU Groq<br>
+            ENGINE: TFLite + GPT-4o-mini<br>
             BUILD: v3.0.0 — 2026
         </div>
     </div>
@@ -279,7 +279,7 @@ elif page == "02 MODEL_A (LSTM)":
             <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8B949E;line-height:1.5;">
             > <b>READY:</b> AI Assistant is on standby.<br>
             > Click 'Generate AI Explanation' to run RAG analysis.<br><br>
-            > <b>BACKEND:</b> Groq Llama 3 (Streaming)
+            > <b>BACKEND:</b> OpenAI GPT-4o-mini (Streaming)
             </div>
             """, unsafe_allow_html=True)
 

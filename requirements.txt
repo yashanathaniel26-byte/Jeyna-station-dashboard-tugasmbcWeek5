@@ -6,6 +6,6 @@ plotly>=5.18.0,<6.0.0
 matplotlib>=3.7.0
 # Dependensi Khusus v3 (RAG/LLM)
 langchain-community>=0.0.20
-langchain-groq>=0.0.1
+langchain-openai>=0.0.5
 faiss-cpu>=1.7.4
 python-dotenv>=1.0.0
